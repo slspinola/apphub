@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  role          String    @default("user")
+  status        String    @default("active")
+  accounts      Account[]
+  sessions      Session[]
+  memberships   Membership[]
+ 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+ 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+ 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+ 
+  @@id([provider, providerAccountId])
+}
+ 
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+ 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+ 
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+ 
+  @@id([identifier, token])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([email, token])
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([email, token])
+}
+
+model Entity {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  logo        String?
+  settings    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parentId    String?
+  parent      Entity?  @relation("EntityHierarchy", fields: [parentId], references: [id])
+  children    Entity[] @relation("EntityHierarchy")
+
+  memberships Membership[]
+  invites     EntityInvite[]
+}
+
+model Membership {
+  id             String   @id @default(cuid())
+  userId         String
+  entityId       String
+  role           String   @default("member")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entity       Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, entityId])
+}
+
+
+model EntityInvite {
+  id             String       @id @default(cuid())
+  email          String
+  entityId       String
+  role           String       @default("member")
+  token          String       @unique
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime     @default(now())
+
+  entity       Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@unique([email, entityId])
+}
+
+model SystemSettings {
+  id              String   @id @default(cuid())
+  companyName     String   @default("Acme Corp")
+  productName     String   @default("AppHub")
+  companyLogo     String?
+  productLogo     String?
+  defaultLanguage String   @default("en")
+  defaultTimezone String   @default("UTC")
+  defaultCountry  String   @default("US")
+  updatedAt       DateTime @updatedAt
+}
