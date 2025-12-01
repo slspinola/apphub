@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs'
 import { revalidatePath } from 'next/cache'
 import { auth } from '@/auth'
 import { cookies } from 'next/headers'
+import { isSystemAdminRole, SYSTEM_ADMIN_ROLE } from '@/lib/authorization'
 
 type ActionResponse<T> =
     | { success: true; data: T; message?: string }
@@ -18,7 +19,33 @@ export async function getUsers(): Promise<ActionResponse<any[]>> {
     }
 
     try {
-        // If system admin, fetch all users
+        // If system admin, fetch all users (including those not in any entity)
+        if (isSystemAdminRole(session.user.role)) {
+            const users = await prisma.user.findMany({
+                orderBy: { createdAt: 'desc' },
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    role: true,
+                    status: true,
+                    createdAt: true,
+                    memberships: {
+                        select: {
+                            entity: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                }
+                            }
+                        }
+                    }
+                },
+            })
+            return { success: true, data: users }
+        }
+
+        // If admin, fetch all users within their entities
         if (session.user.role === 'admin') {
             const users = await prisma.user.findMany({
                 orderBy: { createdAt: 'desc' },
@@ -82,12 +109,19 @@ export async function createUser(data: unknown): Promise<ActionResponse<void>> {
 
     const { email, password, name, role, status } = result.data
 
+    // Only System Admin can create users with system_admin role
+    if (role === SYSTEM_ADMIN_ROLE && !isSystemAdminRole(session.user.role)) {
+        return { success: false, error: 'Only System Admins can create System Admin users' }
+    }
+
+    const isUserSystemAdmin = isSystemAdminRole(session.user.role)
+
     // Determine Entity ID
-    // TODO: Add logic for System Admin to select entity from data
     const cookieStore = await cookies()
     const currentEntityId = cookieStore.get('currentEntityId')?.value
 
-    if (!currentEntityId) {
+    // System Admin can create users without entity context
+    if (!currentEntityId && !isUserSystemAdmin) {
         return { success: false, error: 'No entity context selected' }
     }
 
@@ -102,20 +136,27 @@ export async function createUser(data: unknown): Promise<ActionResponse<void>> {
 
         const hashedPassword = await bcrypt.hash(password, 10)
 
-        await prisma.user.create({
-            data: {
-                name,
-                email,
-                passwordHash: hashedPassword,
-                role,
-                status,
-                memberships: {
-                    create: {
-                        entityId: currentEntityId,
-                        role: 'member' // Default role in entity
-                    }
+        // Build user creation data
+        const userData: any = {
+            name,
+            email,
+            passwordHash: hashedPassword,
+            role,
+            status,
+        }
+
+        // Only add membership if there's an entity context
+        if (currentEntityId) {
+            userData.memberships = {
+                create: {
+                    entityId: currentEntityId,
+                    role: 'member' // Default role in entity
                 }
-            },
+            }
+        }
+
+        await prisma.user.create({
+            data: userData,
         })
 
         revalidatePath('/dashboard/users')
@@ -126,6 +167,11 @@ export async function createUser(data: unknown): Promise<ActionResponse<void>> {
 }
 
 export async function updateUser(data: unknown): Promise<ActionResponse<void>> {
+    const session = await auth()
+    if (!session?.user?.id) {
+        return { success: false, error: 'Unauthorized' }
+    }
+
     const result = UpdateUserSchema.safeParse(data)
 
     if (!result.success) {
@@ -133,6 +179,21 @@ export async function updateUser(data: unknown): Promise<ActionResponse<void>> {
     }
 
     const { id, name, email, role, status } = result.data
+
+    // Only System Admin can assign system_admin role
+    if (role === SYSTEM_ADMIN_ROLE && !isSystemAdminRole(session.user.role)) {
+        return { success: false, error: 'Only System Admins can assign System Admin role' }
+    }
+
+    // Check if target user is a System Admin - only System Admins can modify other System Admins
+    const targetUser = await prisma.user.findUnique({
+        where: { id },
+        select: { role: true }
+    })
+
+    if (targetUser && isSystemAdminRole(targetUser.role) && !isSystemAdminRole(session.user.role)) {
+        return { success: false, error: 'Only System Admins can modify System Admin users' }
+    }
 
     try {
         await prisma.user.update({
@@ -153,6 +214,26 @@ export async function updateUser(data: unknown): Promise<ActionResponse<void>> {
 }
 
 export async function deleteUser(id: string): Promise<ActionResponse<void>> {
+    const session = await auth()
+    if (!session?.user?.id) {
+        return { success: false, error: 'Unauthorized' }
+    }
+
+    // Check if target user is a System Admin - only System Admins can delete other System Admins
+    const targetUser = await prisma.user.findUnique({
+        where: { id },
+        select: { role: true }
+    })
+
+    if (targetUser && isSystemAdminRole(targetUser.role) && !isSystemAdminRole(session.user.role)) {
+        return { success: false, error: 'Only System Admins can delete System Admin users' }
+    }
+
+    // Prevent self-deletion
+    if (session.user.id === id) {
+        return { success: false, error: 'You cannot delete your own account' }
+    }
+
     try {
         await prisma.user.delete({
             where: { id },

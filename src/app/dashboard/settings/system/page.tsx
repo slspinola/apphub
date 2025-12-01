@@ -1,17 +1,39 @@
 import { getSystemSettings } from '@/features/system/actions'
 import { SystemSettingsForm } from '@/components/forms/system-settings-form'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default async function SystemSettingsPage() {
     const result = await getSystemSettings()
 
     if (!result.success) {
-        return <div>Failed to load settings</div>
+        return (
+            <Card>
+                <CardContent className="py-12">
+                    <p className="text-center text-muted-foreground">Failed to load settings</p>
+                </CardContent>
+            </Card>
+        )
     }
 
     return (
-        <div className="flex flex-col gap-4">
-            <h1 className="text-2xl font-bold">White Labeling</h1>
-            <SystemSettingsForm initialSettings={result.data} />
+        <div className="space-y-6">
+            <div>
+                <h3 className="text-lg font-medium">White Labeling</h3>
+                <p className="text-sm text-muted-foreground">
+                    Customize your application branding and appearance
+                </p>
+            </div>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Brand Settings</CardTitle>
+                    <CardDescription>
+                        Configure your product name, company information, and logos
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <SystemSettingsForm initialSettings={result.data} />
+                </CardContent>
+            </Card>
         </div>
     )
 }

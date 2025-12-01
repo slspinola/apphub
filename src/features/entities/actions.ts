@@ -6,6 +6,7 @@ import { auth } from '@/auth'
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { Entity } from '@prisma/client'
+import { isSystemAdminRole } from '@/lib/authorization'
 
 export type EntityWithRelations = Entity & {
     parent: Entity | null
@@ -24,6 +25,24 @@ export async function getUserEntities(): Promise<ActionResponse<EntityWithRelati
     }
 
     try {
+        // System Admin can see all entities
+        if (isSystemAdminRole(session.user.role)) {
+            const allEntities = await prisma.entity.findMany({
+                include: {
+                    children: true,
+                    parent: true
+                },
+                orderBy: { name: 'asc' }
+            })
+
+            const entities = allEntities.map((entity) => ({
+                ...entity,
+                role: 'system_admin' as const, // System Admin has full access to all entities
+            }))
+
+            return { success: true, data: entities }
+        }
+
         const memberships = await prisma.membership.findMany({
             where: { userId: session.user.id },
             include: {
@@ -104,18 +123,30 @@ export async function switchEntity(entityId: string): Promise<ActionResponse<voi
     }
 
     try {
-        // Verify membership
-        const membership = await prisma.membership.findUnique({
-            where: {
-                userId_entityId: {
-                    userId: session.user.id,
-                    entityId,
+        // System Admin can switch to any entity without membership
+        if (!isSystemAdminRole(session.user.role)) {
+            // Verify membership for non-system admins
+            const membership = await prisma.membership.findUnique({
+                where: {
+                    userId_entityId: {
+                        userId: session.user.id,
+                        entityId,
+                    },
                 },
-            },
-        })
+            })
 
-        if (!membership) {
-            return { success: false, error: 'You are not a member of this entity' }
+            if (!membership) {
+                return { success: false, error: 'You are not a member of this entity' }
+            }
+        } else {
+            // Verify entity exists for System Admin
+            const entity = await prisma.entity.findUnique({
+                where: { id: entityId },
+            })
+
+            if (!entity) {
+                return { success: false, error: 'Entity not found' }
+            }
         }
 
         const cookieStore = await cookies()
@@ -127,3 +158,4 @@ export async function switchEntity(entityId: string): Promise<ActionResponse<voi
         return { success: false, error: 'Failed to switch entity' }
     }
 }
+
