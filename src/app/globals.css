@@ -2,6 +2,9 @@
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant sparkiq-blue (&:is(.sparkiq-blue *));
+@custom-variant green (&:is(.green *));
+@custom-variant bee2hive (&:is(.bee2hive *));
 
 @theme inline {
   --color-background: var(--background);
@@ -66,7 +69,8 @@
   --color-divisao-retalho: #20B2AA;
 }
 
-:root {
+:root,
+.bee2hive {
   --radius: 0.5rem;
 
   /* Bee2hive Light Theme */
@@ -114,8 +118,106 @@
   --sidebar-ring: #f93f26;
 }
 
+.sparkiq-blue {
+  --radius: 0.5rem;
+
+  /* SparkIQ Blue Theme */
+  --background: #ffffff;
+  --foreground: #1a1a1a;
+
+  --card: #ffffff;
+  --card-foreground: #1a1a1a;
+
+  --popover: #ffffff;
+  --popover-foreground: #1a1a1a;
+
+  --primary: #2196F3;
+  --primary-foreground: #ffffff;
+
+  --secondary: #1976D2;
+  --secondary-foreground: #ffffff;
+
+  --muted: #E3F2FD;
+  --muted-foreground: #546E7A;
+
+  --accent: #E3F2FD;
+  --accent-foreground: #1a1a1a;
+
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+
+  --border: #BBDEFB;
+  --input: #BBDEFB;
+  --ring: #2196F3;
+
+  --chart-1: #2196F3;
+  --chart-2: #1976D2;
+  --chart-3: #4CAF50;
+  --chart-4: #00BCD4;
+  --chart-5: #42A5F5;
+
+  --sidebar: #E3F2FD;
+  --sidebar-foreground: #1a1a1a;
+  --sidebar-primary: #2196F3;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #BBDEFB;
+  --sidebar-accent-foreground: #1a1a1a;
+  --sidebar-border: #BBDEFB;
+  --sidebar-ring: #2196F3;
+}
+
+.green {
+  --radius: 0.5rem;
+
+  /* Green Theme - Ambiente */
+  --background: #ffffff;
+  --foreground: #1a1a1a;
+
+  --card: #ffffff;
+  --card-foreground: #1a1a1a;
+
+  --popover: #ffffff;
+  --popover-foreground: #1a1a1a;
+
+  --primary: #2ECC71;
+  --primary-foreground: #ffffff;
+
+  --secondary: #27AE60;
+  --secondary-foreground: #ffffff;
+
+  --muted: #E8F8F5;
+  --muted-foreground: #52796F;
+
+  --accent: #E8F8F5;
+  --accent-foreground: #1a1a1a;
+
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+
+  --border: #A8E6CF;
+  --input: #A8E6CF;
+  --ring: #2ECC71;
+
+  --chart-1: #2ECC71;
+  --chart-2: #27AE60;
+  --chart-3: #16A085;
+  --chart-4: #45B39D;
+  --chart-5: #58D68D;
+
+  --sidebar: #E8F8F5;
+  --sidebar-foreground: #1a1a1a;
+  --sidebar-primary: #2ECC71;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #D5F4E6;
+  --sidebar-accent-foreground: #1a1a1a;
+  --sidebar-border: #A8E6CF;
+  --sidebar-ring: #2ECC71;
+}
+
 .dark {
-  /* Bee2hive Dark Theme (Approximated) */
+  --radius: 0.5rem;
+
+  /* Bee2hive Dark Theme */
   --background: #0a0a0a;
   --foreground: #ededed;
 

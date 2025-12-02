@@ -10,8 +10,16 @@ import {
     TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { auth } from '@/auth'
+import { isSystemAdminRole } from '@/lib/authorization'
+import { Eye, Pencil } from 'lucide-react'
+import Link from 'next/link'
 
 export default async function EntitiesPage() {
+    const session = await auth()
+    const isSystemAdmin = isSystemAdminRole(session?.user?.role)
+    
     const result = await getUserEntities()
     const entities = result.success ? result.data : []
 
@@ -87,24 +95,58 @@ export default async function EntitiesPage() {
                                         <TableHead>Role</TableHead>
                                         <TableHead>Parent</TableHead>
                                         <TableHead>Created At</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {entities?.map((entity) => (
-                                        <TableRow key={entity.id}>
-                                            <TableCell className="font-medium">{entity.name}</TableCell>
-                                            <TableCell>{entity.slug}</TableCell>
-                                            <TableCell>
-                                                <Badge variant="outline">{entity.role}</Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                                {entity.parent ? entity.parent.name : '-'}
-                                            </TableCell>
-                                            <TableCell>
-                                                {new Date(entity.createdAt).toLocaleDateString()}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
+                                    {entities?.map((entity) => {
+                                        // Show actions for system admins or entity owners
+                                        const canManage = isSystemAdmin || entity.role === 'owner'
+                                        
+                                        return (
+                                            <TableRow key={entity.id}>
+                                                <TableCell className="font-medium">{entity.name}</TableCell>
+                                                <TableCell>{entity.slug}</TableCell>
+                                                <TableCell>
+                                                    <Badge variant="outline">{entity.role}</Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {entity.parent ? entity.parent.name : '-'}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {new Date(entity.createdAt).toLocaleDateString()}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {canManage && (
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                asChild
+                                                                title="View details"
+                                                            >
+                                                                <Link href={`/entity/${entity.slug}`}>
+                                                                    <Eye className="h-4 w-4" />
+                                                                    <span className="sr-only">View details</span>
+                                                                </Link>
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                asChild
+                                                                title="Edit entity"
+                                                            >
+                                                                <Link href={`/entity/${entity.slug}/edit`}>
+                                                                    <Pencil className="h-4 w-4" />
+                                                                    <span className="sr-only">Edit entity</span>
+                                                                </Link>
+                                                            </Button>
+                                                        </div>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        )
+                                    })}
                                 </TableBody>
                             </Table>
                         </div>

@@ -12,7 +12,7 @@ export function DashboardHeader({
     productLogo?: string | null
 }) {
     return (
-        <header className="fixed top-0 left-0 right-0 flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-[#f93f26] text-white z-50">
+        <header className="fixed top-0 left-0 right-0 flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-primary text-primary-foreground z-50">
             <div className="flex items-center gap-2 font-bold text-xl">
                 {productLogo ? (
                     <img src={productLogo} alt={productName} className="h-8 w-auto" />

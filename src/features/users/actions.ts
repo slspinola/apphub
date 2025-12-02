@@ -159,7 +159,7 @@ export async function createUser(data: unknown): Promise<ActionResponse<void>> {
             data: userData,
         })
 
-        revalidatePath('/dashboard/users')
+        revalidatePath('/users')
         return { success: true, data: undefined, message: 'User created successfully' }
     } catch (error) {
         return { success: false, error: 'Failed to create user' }
@@ -206,7 +206,7 @@ export async function updateUser(data: unknown): Promise<ActionResponse<void>> {
             },
         })
 
-        revalidatePath('/dashboard/users')
+        revalidatePath('/users')
         return { success: true, data: undefined, message: 'User updated successfully' }
     } catch (error) {
         return { success: false, error: 'Failed to update user' }
@@ -239,7 +239,7 @@ export async function deleteUser(id: string): Promise<ActionResponse<void>> {
             where: { id },
         })
 
-        revalidatePath('/dashboard/users')
+        revalidatePath('/users')
         return { success: true, data: undefined, message: 'User deleted successfully' }
     } catch (error) {
         return { success: false, error: 'Failed to delete user' }

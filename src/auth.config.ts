@@ -7,16 +7,33 @@ export const authConfig = {
     callbacks: {
         authorized({ auth, request: { nextUrl } }) {
             const isLoggedIn = !!auth?.user
-            const isOnDashboard = nextUrl.pathname.startsWith('/dashboard')
-            if (isOnDashboard) {
-                if (isLoggedIn) return true
-                return false // Redirect unauthenticated users to login page
-            } else if (isLoggedIn) {
-                // Redirect authenticated users to dashboard if they visit login page
-                if (nextUrl.pathname === '/login' || nextUrl.pathname === '/') {
-                    return Response.redirect(new URL('/dashboard', nextUrl))
+            
+            const publicPaths = [
+                '/login',
+                '/register',
+                '/forgot-password',
+                '/reset-password',
+                '/verify-email',
+                '/resend-verification'
+            ]
+            
+            const isPublicPath = publicPaths.some(path => nextUrl.pathname.startsWith(path))
+
+            if (isPublicPath) {
+                if (isLoggedIn) {
+                    // Redirect authenticated users to dashboard if they visit login/register pages
+                    if (nextUrl.pathname === '/login' || nextUrl.pathname === '/register') {
+                        return Response.redirect(new URL('/', nextUrl))
+                    }
                 }
+                return true
             }
+
+            // Protected routes (dashboard and others)
+            if (!isLoggedIn) {
+                return false // Redirect unauthenticated users to login page
+            }
+
             return true
         },
     },

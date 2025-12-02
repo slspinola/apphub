@@ -30,10 +30,32 @@ import { Plus } from 'lucide-react'
 
 type FormData = z.infer<typeof CreateEntitySchema>
 
-export function CreateEntityDialog() {
+interface CreateEntityDialogProps {
+    /** Pre-selected parent entity ID (for creating sub-entities) */
+    parentEntityId?: string
+    /** Custom trigger button text */
+    triggerText?: string
+    /** Custom dialog title */
+    dialogTitle?: string
+    /** Custom dialog description */
+    dialogDescription?: string
+}
+
+export function CreateEntityDialog({
+    parentEntityId,
+    triggerText = 'Create Entity',
+    dialogTitle,
+    dialogDescription,
+}: CreateEntityDialogProps = {}) {
     const [open, setOpen] = useState(false)
     const [isPending, setIsPending] = useState(false)
     const [entities, setEntities] = useState<any[]>([])
+
+    const isSubEntityMode = !!parentEntityId
+    const title = dialogTitle || (isSubEntityMode ? 'Create Sub-Entity' : 'Create Entity')
+    const description = dialogDescription || (isSubEntityMode
+        ? 'Create a new sub-entity under the current entity.'
+        : 'Create a new entity or sub-entity to manage your team and projects.')
 
     useEffect(() => {
         if (open) {
@@ -50,10 +72,23 @@ export function CreateEntityDialog() {
         handleSubmit,
         reset,
         setValue,
+        watch,
         formState: { errors },
     } = useForm<FormData>({
         resolver: zodResolver(CreateEntitySchema),
+        defaultValues: {
+            parentId: parentEntityId,
+        },
     })
+
+    // Set parent entity when dialog opens in sub-entity mode
+    useEffect(() => {
+        if (open && parentEntityId) {
+            setValue('parentId', parentEntityId)
+        }
+    }, [open, parentEntityId, setValue])
+
+    const selectedParentId = watch('parentId')
 
     const onSubmit = async (data: FormData) => {
         setIsPending(true)
@@ -73,20 +108,21 @@ export function CreateEntityDialog() {
         }
     }
 
+    // Find selected parent entity name for display
+    const selectedParentEntity = entities.find((e) => e.id === selectedParentId)
+
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button>
                     <Plus className="mr-2 h-4 w-4" />
-                    Create Entity
+                    {triggerText}
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Create Entity</DialogTitle>
-                    <DialogDescription>
-                        Create a new entity or sub-entity to manage your team and projects.
-                    </DialogDescription>
+                    <DialogTitle>{title}</DialogTitle>
+                    <DialogDescription>{description}</DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit(onSubmit)}>
                     <div className="grid gap-4 py-4">
@@ -105,13 +141,25 @@ export function CreateEntityDialog() {
                             )}
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="parentId">Parent Entity (Optional)</Label>
-                            <Select onValueChange={(value) => setValue('parentId', value === 'none' ? undefined : value)}>
+                            <Label htmlFor="parentId">
+                                Parent Entity {isSubEntityMode ? '' : '(Optional)'}
+                            </Label>
+                            <Select
+                                value={selectedParentId || 'none'}
+                                onValueChange={(value) =>
+                                    setValue('parentId', value === 'none' ? undefined : value)
+                                }
+                                disabled={isSubEntityMode}
+                            >
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Select parent entity" />
+                                    <SelectValue placeholder="Select parent entity">
+                                        {selectedParentEntity?.name || (selectedParentId ? 'Loading...' : 'None (Root Entity)')}
+                                    </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="none">None (Root Entity)</SelectItem>
+                                    {!isSubEntityMode && (
+                                        <SelectItem value="none">None (Root Entity)</SelectItem>
+                                    )}
                                     {entities.map((entity) => (
                                         <SelectItem key={entity.id} value={entity.id}>
                                             {entity.name}
@@ -119,11 +167,16 @@ export function CreateEntityDialog() {
                                     ))}
                                 </SelectContent>
                             </Select>
+                            {isSubEntityMode && selectedParentEntity && (
+                                <p className="text-xs text-muted-foreground">
+                                    This sub-entity will be created under {selectedParentEntity.name}
+                                </p>
+                            )}
                         </div>
                     </div>
                     <DialogFooter>
                         <Button type="submit" disabled={isPending}>
-                            {isPending ? 'Creating...' : 'Create Entity'}
+                            {isPending ? 'Creating...' : isSubEntityMode ? 'Create Sub-Entity' : 'Create Entity'}
                         </Button>
                     </DialogFooter>
                 </form>

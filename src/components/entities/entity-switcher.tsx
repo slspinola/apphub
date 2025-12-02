@@ -55,9 +55,9 @@ export function EntitySwitcher({
                     variant="outline"
                     role="combobox"
                     aria-label="Select entity"
-                    className="w-[200px] justify-between"
+                    className="w-full max-w-[200px] justify-between min-w-0"
                 >
-                    {currentEntity ? currentEntity.name : 'Select Entity'}
+                    <span className="truncate">{currentEntity ? currentEntity.name : 'Select Entity'}</span>
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </DropdownMenuTrigger>
@@ -79,7 +79,7 @@ export function EntitySwitcher({
                     </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => router.push('/dashboard/entities')}>
+                <DropdownMenuItem onSelect={() => router.push('/entities')}>
                     <Plus className="mr-2 h-4 w-4" />
                     Create Entity
                 </DropdownMenuItem>

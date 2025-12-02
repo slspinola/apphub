@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { FileQuestion, Home, ArrowLeft } from 'lucide-react'
+import { FileQuestion, Home } from 'lucide-react'
 
 export default function NotFound() {
     return (
@@ -20,16 +20,10 @@ export default function NotFound() {
                     <p>Error 404</p>
                 </CardContent>
                 <CardFooter className="flex justify-center gap-4">
-                    <Button variant="outline" asChild>
+                    <Button variant="default" asChild>
                         <Link href="/">
                             <Home className="mr-2 h-4 w-4" />
-                            Home
-                        </Link>
-                    </Button>
-                    <Button asChild>
-                        <Link href="/dashboard">
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Dashboard
+                            Go Home
                         </Link>
                     </Button>
                 </CardFooter>
@@ -37,4 +31,3 @@ export default function NotFound() {
         </div>
     )
 }
-

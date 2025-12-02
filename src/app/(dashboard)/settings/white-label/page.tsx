@@ -1,8 +1,8 @@
 import { getSystemSettings } from '@/features/system/actions'
-import { SystemSettingsForm } from '@/components/forms/system-settings-form'
+import { WhiteLabelSettingsForm } from '@/components/forms/white-label-settings-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
-export default async function SystemSettingsPage() {
+export default async function WhiteLabelSettingsPage() {
     const result = await getSystemSettings()
 
     if (!result.success) {
@@ -18,7 +18,7 @@ export default async function SystemSettingsPage() {
     return (
         <div className="space-y-6">
             <div>
-                <h3 className="text-lg font-medium">White Labeling</h3>
+                <h3 className="text-lg font-medium">White Label</h3>
                 <p className="text-sm text-muted-foreground">
                     Customize your application branding and appearance
                 </p>
@@ -31,9 +31,11 @@ export default async function SystemSettingsPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <SystemSettingsForm initialSettings={result.data} />
+                    <WhiteLabelSettingsForm initialSettings={result.data} />
                 </CardContent>
             </Card>
         </div>
     )
 }
+
+
