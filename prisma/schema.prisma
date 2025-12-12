@@ -20,6 +20,17 @@ model User {
   accounts      Account[]
   sessions      Session[]
   memberships   Membership[]
+  
+  // User management relations
+  activityLogs        UserActivityLog[]
+  passwordResets      PasswordResetLog[]
+  adminResets         PasswordResetLog[]    @relation("AdminResets")
+  impersonations      UserImpersonation[]   @relation("UserImpersonated")
+  adminImpersonations UserImpersonation[]   @relation("AdminImpersonations")
+ 
+  // OAuth Provider relations
+  oauthAuthorizationCodes OAuthAuthorizationCode[]
+  oauthRefreshTokens      OAuthRefreshToken[]
  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -99,6 +110,7 @@ model Entity {
 
   memberships Membership[]
   invites     EntityInvite[]
+  licenses    License[]
 }
 
 model Membership {
@@ -109,8 +121,9 @@ model Membership {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  entity       Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entity       Entity            @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  scopes       MembershipScope[]
 
   @@unique([userId, entityId])
 }
@@ -141,4 +154,390 @@ model SystemSettings {
   defaultTimezone String   @default("UTC")
   defaultCountry  String   @default("US")
   updatedAt       DateTime @updatedAt
+}
+
+// ============================================================================
+// APP REGISTRY - Ecosystem Applications
+// ============================================================================
+
+model App {
+  id          String    @id @default(cuid())
+  
+  // Identification
+  slug        String    @unique   // "bee2fleet", "bee2vision"
+  name        String              // "Bee2Fleet"
+  description String?
+  
+  // Visual
+  icon        String?
+  color       String?             // Primary color (#hex)
+  
+  // URLs
+  baseUrl     String              // "https://fleet.bee2.com"
+  loginUrl    String?
+  docsUrl     String?
+  supportUrl  String?
+  
+  // State
+  status      AppStatus @default(DRAFT)
+  isCore      Boolean   @default(false)  // true only for apphub
+  isPublic    Boolean   @default(true)   // Visible in launcher
+  
+  // Configuration
+  settings    Json      @default("{}")
+  metadata    Json      @default("{}")
+  
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  publishedAt DateTime?
+  
+  // Relations
+  oauthClient   OAuthClient?
+  permissions   Permission[]
+  scopeTypes    AppScopeType[]
+  plans         Plan[]
+  licenses      License[]
+  webhooks      AppWebhook[]
+  
+  @@index([status])
+}
+
+enum AppStatus {
+  DRAFT       // In development, not visible
+  BETA        // In testing, limited visibility
+  ACTIVE      // Active and available
+  SUSPENDED   // Temporarily suspended
+  DEPRECATED  // Marked for discontinuation
+  ARCHIVED    // Archived, non-functional
+}
+
+// ============================================================================
+// OAUTH CLIENT - Authentication Credentials
+// ============================================================================
+
+model OAuthClient {
+  id            String   @id @default(cuid())
+  appId         String   @unique
+  
+  // Credentials
+  clientId      String   @unique
+  clientSecret  String                     // Hashed
+  
+  // OAuth Configuration
+  redirectUris  String[]
+  scopes        String[] @default(["openid", "profile", "email", "organization"])
+  grantTypes    String[] @default(["authorization_code", "refresh_token"])
+  
+  // Security
+  tokenLifetime        Int @default(3600)    // Access token (seconds)
+  refreshTokenLifetime Int @default(604800)  // Refresh token (7 days)
+  
+  // Timestamps
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  secretRotatedAt  DateTime?
+  
+  // Relations
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+  authorizationCodes OAuthAuthorizationCode[]
+  refreshTokens      OAuthRefreshToken[]
+  
+  @@index([clientId])
+}
+
+// ============================================================================
+// OAUTH AUTHORIZATION CODE - Temporary codes for OAuth flow
+// ============================================================================
+
+model OAuthAuthorizationCode {
+  id                  String    @id @default(cuid())
+  code                String    @unique
+  clientId            String
+  userId              String
+  redirectUri         String
+  scope               String
+  codeChallenge       String?   // PKCE support
+  codeChallengeMethod String?   // "S256" or "plain"
+  nonce               String?   // OpenID Connect nonce for replay protection
+  expiresAt           DateTime
+  usedAt              DateTime?
+  createdAt           DateTime  @default(now())
+
+  client OAuthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([code])
+  @@index([clientId])
+}
+
+// ============================================================================
+// OAUTH REFRESH TOKEN - Long-lived tokens for token refresh
+// ============================================================================
+
+model OAuthRefreshToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  clientId  String
+  userId    String
+  scope     String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  client OAuthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([clientId])
+  @@index([userId])
+}
+
+// ============================================================================
+// PERMISSION - App Permissions
+// ============================================================================
+
+model Permission {
+  id          String   @id @default(cuid())
+  appId       String
+  
+  // Identification
+  slug        String              // "vehicles:read", "vehicles:write"
+  name        String              // "View Vehicles"
+  description String?
+  
+  // Categorization
+  resource    String              // "vehicles", "drivers", "trips"
+  action      String              // "read", "write", "delete", "manage"
+  
+  // Grouping and ordering
+  groupName   String?             // Group for UI display
+  sortOrder   Int     @default(0)
+  
+  // Flags
+  isSystem    Boolean @default(false)  // System permission (non-editable)
+  isDefault   Boolean @default(false)  // Included by default in new roles
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@unique([appId, slug])
+  @@index([appId, resource])
+}
+
+// ============================================================================
+// APP SCOPE TYPE - Access Scope Definitions
+// ============================================================================
+
+model AppScopeType {
+  id          String   @id @default(cuid())
+  appId       String
+  
+  // Identification
+  slug        String              // "customer", "region", "vehicle_group"
+  name        String              // "Customer", "Region"
+  description String?
+  
+  // Configuration
+  requiresSelection Boolean @default(true)
+  multiSelect       Boolean @default(false)
+  optionsEndpoint   String?                  // "/api/v1/scope-options/customers"
+  
+  // Validation schema for value
+  valueSchema Json?               // JSON Schema for scopeValue validation
+  
+  // Ordering
+  sortOrder   Int     @default(0)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@unique([appId, slug])
+}
+
+// ============================================================================
+// PLAN - Licensing Plans
+// ============================================================================
+
+model Plan {
+  id          String   @id @default(cuid())
+  appId       String
+  
+  // Identification
+  slug        String              // "basic", "professional", "enterprise"
+  name        String              // "Basic", "Professional"
+  description String?
+  
+  // Pricing (optional, for display)
+  price       Decimal? @db.Decimal(10, 2)
+  currency    String?  @default("EUR")
+  billingCycle String? // "monthly", "yearly", "one-time"
+  
+  // Limits and Features
+  limits      Json     @default("{}")  // { "maxUsers": 10, "maxVehicles": 50 }
+  features    Json     @default("{}")  // { "reports": true, "api": false }
+  
+  // State
+  isActive    Boolean  @default(true)
+  isPublic    Boolean  @default(true)
+  isTrial     Boolean  @default(false)
+  trialDays   Int?
+  
+  // Ordering
+  sortOrder   Int      @default(0)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  app      App       @relation(fields: [appId], references: [id], onDelete: Cascade)
+  licenses License[]
+
+  @@unique([appId, slug])
+}
+
+// ============================================================================
+// LICENSE - Active Licenses
+// ============================================================================
+
+model License {
+  id             String        @id @default(cuid())
+  entityId       String
+  appId          String
+  planId         String
+  status         LicenseStatus @default(ACTIVE)
+  validFrom      DateTime      @default(now())
+  validUntil     DateTime?
+  trialEndsAt    DateTime?
+  cancelledAt    DateTime?
+  metadata       Json          @default("{}")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  entity   Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  app      App    @relation(fields: [appId], references: [id])
+  plan     Plan   @relation(fields: [planId], references: [id])
+
+  @@unique([entityId, appId])
+  @@index([status])
+}
+
+enum LicenseStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+  EXPIRED
+}
+
+// ============================================================================
+// APP WEBHOOK - Event Notifications
+// ============================================================================
+
+model AppWebhook {
+  id          String   @id @default(cuid())
+  appId       String
+
+  // Configuration
+  url         String
+  events      String[]            // ["user.created", "license.activated"]
+
+  // Security
+  secret         String           // Encrypted raw secret for signing payloads
+  secretHash     String?          // Hash of secret for display hint (optional for migration)
+
+  // State
+  isActive    Boolean  @default(true)
+
+  // Statistics
+  lastTriggeredAt DateTime?
+  lastStatus      Int?            // Last HTTP status
+  failureCount    Int     @default(0)
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@index([appId, isActive])
+}
+
+// ============================================================================
+// MEMBERSHIP SCOPE - User Scopes per App
+// ============================================================================
+
+model MembershipScope {
+  id           String   @id @default(cuid())
+  membershipId String
+  appId        String
+  
+  // Scope type and value
+  scopeType    String   // "full_access", "customer", "region", etc.
+  scopeValue   Json?    // { "customer_id": "cust_123" } or null for full_access
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, appId])
+}
+
+// ============================================================================
+// USER MANAGEMENT - Activity Logs and Audit Trail
+// ============================================================================
+
+model UserActivityLog {
+  id          String   @id @default(cuid())
+  userId      String
+  action      String   // "login", "password_reset", "entity_access_changed", etc.
+  entityId    String?  // Related entity if applicable
+  metadata    Json     @default("{}")
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, createdAt])
+}
+
+model PasswordResetLog {
+  id          String   @id @default(cuid())
+  userId      String
+  resetBy     String   // Admin user ID who performed reset
+  method      String   // "admin_reset", "self_service", "forgot_password"
+  createdAt   DateTime @default(now())
+  
+  user    User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  admin   User @relation("AdminResets", fields: [resetBy], references: [id])
+  
+  @@index([userId, createdAt])
+}
+
+model UserImpersonation {
+  id          String    @id @default(cuid())
+  adminId     String
+  userId      String
+  startedAt   DateTime  @default(now())
+  endedAt     DateTime?
+  reason      String?
+  ipAddress   String?
+  
+  admin User @relation("AdminImpersonations", fields: [adminId], references: [id])
+  user  User @relation("UserImpersonated", fields: [userId], references: [id])
+  
+  @@index([userId, startedAt])
+  @@index([adminId, startedAt])
 }

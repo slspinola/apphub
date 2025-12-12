@@ -130,7 +130,12 @@ export default async function SubEntitiesPage() {
                         <FolderTree className="mr-1 h-3 w-3" />
                         {subEntities.length} sub-entities
                     </Badge>
-                    {permissions.canCreateSubEntities && <CreateEntityDialog />}
+                    {permissions.canCreateSubEntities && (
+                        <CreateEntityDialog
+                            parentEntityId={currentEntityId}
+                            triggerText="Create Sub-Entity"
+                        />
+                    )}
                 </div>
             </div>
 
@@ -172,7 +177,12 @@ export default async function SubEntitiesPage() {
                                     ? 'Create your first sub-entity to organize your structure'
                                     : 'This entity has no sub-entities yet'}
                             </p>
-                            {permissions.canCreateSubEntities && <CreateEntityDialog />}
+                            {permissions.canCreateSubEntities && (
+                                <CreateEntityDialog
+                                    parentEntityId={currentEntityId}
+                                    triggerText="Create Sub-Entity"
+                                />
+                            )}
                         </div>
                     ) : (
                         <div className="rounded-md border">

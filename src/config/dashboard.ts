@@ -6,6 +6,8 @@ import {
     Network,
     FolderTree,
     Shield,
+    AppWindow,
+    LayoutGrid,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -45,6 +47,19 @@ export const dashboardConfig = {
         },
     ] as NavItem[],
 
+    // Applications section (visible to all authenticated users)
+    applications: {
+        label: 'Applications',
+        icon: LayoutGrid,
+        items: [
+            {
+                title: 'My Apps',
+                url: '/my-apps',
+                icon: AppWindow,
+            },
+        ] as NavItem[],
+    } as NavGroup,
+
     // Entity management section (role-based visibility) - Simplified with tabs
     entityManagement: {
         label: 'Entity Management',
@@ -81,6 +96,11 @@ export const dashboardConfig = {
         icon: Shield,
         requiresSystemAdmin: true,
         items: [
+            {
+                title: 'Apps',
+                url: '/apps',
+                icon: AppWindow,
+            },
             {
                 title: 'System Settings',
                 url: '/settings',

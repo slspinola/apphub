@@ -2,6 +2,8 @@
 
 import { signIn, signOut } from '@/auth'
 import { AuthError } from 'next-auth'
+import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
@@ -47,19 +49,37 @@ type ActionResult = {
     message: string
 }
 
+type AuthResult = {
+    success: boolean
+    error?: string
+    redirectTo?: string
+}
+
 export async function authenticate(
-    prevState: string | undefined,
+    prevState: AuthResult | undefined,
     formData: FormData
-) {
+): Promise<AuthResult> {
+    const callbackUrl = formData.get('callbackUrl') as string || '/'
+
     try {
-        await signIn('credentials', formData)
+        await signIn('credentials', {
+            email: formData.get('email'),
+            password: formData.get('password'),
+            redirect: false,
+        })
+
+        // Return success with redirect URL for client-side redirect
+        return {
+            success: true,
+            redirectTo: callbackUrl,
+        }
     } catch (error) {
         if (error instanceof AuthError) {
             switch (error.type) {
                 case 'CredentialsSignin':
-                    return 'Invalid credentials.'
+                    return { success: false, error: 'Invalid credentials.' }
                 default:
-                    return 'Something went wrong.'
+                    return { success: false, error: 'Something went wrong.' }
             }
         }
         throw error
@@ -121,7 +141,15 @@ export async function register(
 }
 
 export async function logout() {
-    await signOut()
+    try {
+        await signOut({ redirect: false })
+    } catch (error) {
+        console.error('Logout error:', error)
+        // Even if signOut fails, we still want to redirect to login
+    }
+    
+    // Explicit redirect to login page after logout
+    redirect('/login')
 }
 
 /**

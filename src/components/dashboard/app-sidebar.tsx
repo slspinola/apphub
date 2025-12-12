@@ -126,6 +126,34 @@ export function AppSidebar({
                     </SidebarGroupContent>
                 </SidebarGroup>
 
+                {/* Applications Section (visible to all users) */}
+                <SidebarSeparator />
+                <SidebarGroup>
+                    <SidebarGroupLabel>
+                        {dashboardConfig.applications.icon && (
+                            <dashboardConfig.applications.icon className="mr-2 h-4 w-4" />
+                        )}
+                        {dashboardConfig.applications.label}
+                    </SidebarGroupLabel>
+                    <SidebarGroupContent>
+                        <SidebarMenu>
+                            {dashboardConfig.applications.items.map((item) => (
+                                <SidebarMenuItem key={item.title}>
+                                    <SidebarMenuButton
+                                        asChild
+                                        isActive={pathname === item.url || pathname.startsWith(item.url + '/')}
+                                    >
+                                        <Link href={item.url}>
+                                            <item.icon />
+                                            <span>{item.title}</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            ))}
+                        </SidebarMenu>
+                    </SidebarGroupContent>
+                </SidebarGroup>
+
                 {/* Entity Management Section */}
                 {canSeeEntityManagement && visibleEntityManagementItems.length > 0 && (
                     <>

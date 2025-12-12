@@ -1,18 +1,34 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useEffect } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { authenticate } from '@/features/auth/actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import Link from 'next/link'
 
 export function LoginForm() {
-    const [errorMessage, dispatch, isPending] = useActionState(
+    const searchParams = useSearchParams()
+    const router = useRouter()
+    const sessionError = searchParams.get('error')
+    const sessionMessage = searchParams.get('message')
+    const callbackUrl = searchParams.get('callbackUrl') || '/'
+
+    const [result, dispatch, isPending] = useActionState(
         authenticate,
         undefined
     )
+
+    // Handle successful login redirect
+    useEffect(() => {
+        if (result?.success && result?.redirectTo) {
+            // Use window.location for external/complex URLs
+            window.location.href = result.redirectTo
+        }
+    }, [result, router])
 
     return (
         <Card className="w-full max-w-sm">
@@ -23,7 +39,13 @@ export function LoginForm() {
                 </CardDescription>
             </CardHeader>
             <form action={dispatch}>
+                <input type="hidden" name="callbackUrl" value={callbackUrl} />
                 <CardContent className="grid gap-4">
+                    {sessionError === 'SessionExpired' && sessionMessage && (
+                        <Alert variant="destructive">
+                            <AlertDescription>{sessionMessage}</AlertDescription>
+                        </Alert>
+                    )}
                     <div className="grid gap-2">
                         <Label htmlFor="email">Email</Label>
                         <Input
@@ -43,8 +65,8 @@ export function LoginForm() {
                         </div>
                         <Input id="password" type="password" name="password" required />
                     </div>
-                    {errorMessage && (
-                        <div className="text-sm text-red-500">{errorMessage}</div>
+                    {result?.error && (
+                        <div className="text-sm text-red-500">{result.error}</div>
                     )}
                 </CardContent>
                 <CardFooter className="flex flex-col gap-4">

@@ -41,8 +41,14 @@ export function EntitySwitcher({
 
         const result = await switchEntity(entityId)
         if (result.success) {
-            toast.success('Switched entity')
-            router.refresh()
+            // Find the selected entity's slug and navigate to its page
+            const selectedEntity = entities.find((entity) => entity.id === entityId)
+            if (selectedEntity) {
+                toast.success('Switched entity')
+                router.push(`/entity/${selectedEntity.slug}`)
+            } else {
+                toast.error('Entity not found')
+            }
         } else {
             toast.error(result.error)
         }

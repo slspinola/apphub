@@ -11,6 +11,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Users } from 'lucide-react'
 import type { Entity, Membership, User } from '@prisma/client'
+import { InviteMemberDialog } from './invite-member-dialog'
 
 interface EntityMembersTabProps {
     entity: Entity
@@ -43,11 +44,14 @@ export function EntityMembersTab({ entity, members }: EntityMembersTabProps) {
     return (
         <div className="space-y-6">
             <Card>
-                <CardHeader>
-                    <CardTitle>Members</CardTitle>
-                    <CardDescription>
-                        All users who have access to {entity.name}
-                    </CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                    <div className="space-y-1">
+                        <CardTitle>Members</CardTitle>
+                        <CardDescription>
+                            All users who have access to {entity.name}
+                        </CardDescription>
+                    </div>
+                    <InviteMemberDialog entityId={entity.id} />
                 </CardHeader>
                 <CardContent>
                     {sortedMembers.length === 0 ? (
@@ -145,4 +149,3 @@ export function EntityMembersTab({ entity, members }: EntityMembersTabProps) {
         </div>
     )
 }
-

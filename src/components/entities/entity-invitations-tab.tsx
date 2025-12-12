@@ -1,3 +1,5 @@
+'use client'
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -8,8 +10,23 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table'
-import { Mail, Clock, CheckCircle, UserPlus } from 'lucide-react'
+import { Mail, Clock, CheckCircle, UserPlus, XCircle, Trash2 } from 'lucide-react'
 import type { Entity, EntityInvite } from '@prisma/client'
+import { Button } from '@/components/ui/button'
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { revokeInvitation } from '@/features/entities/actions'
+import { toast } from 'sonner'
+import { useState } from 'react'
 
 interface EntityInvitationsTabProps {
     entity: Entity
@@ -113,6 +130,7 @@ export function EntityInvitationsTab({ entity, invitations }: EntityInvitationsT
                                         <TableHead>Status</TableHead>
                                         <TableHead>Sent</TableHead>
                                         <TableHead>Expires</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -131,6 +149,11 @@ export function EntityInvitationsTab({ entity, invitations }: EntityInvitationsT
                                             <TableCell className="text-muted-foreground">
                                                 {new Date(invitation.expiresAt).toLocaleDateString()}
                                             </TableCell>
+                                            <TableCell className="text-right">
+                                                {!invitation.acceptedAt && (
+                                                    <RevokeButton invitationId={invitation.id} />
+                                                )}
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -143,3 +166,51 @@ export function EntityInvitationsTab({ entity, invitations }: EntityInvitationsT
     )
 }
 
+function RevokeButton({ invitationId }: { invitationId: string }) {
+    const [isPending, setIsPending] = useState(false)
+
+    const handleRevoke = async () => {
+        setIsPending(true)
+        try {
+            const result = await revokeInvitation(invitationId)
+            if (result.success) {
+                toast.success(result.message)
+            } else {
+                toast.error(result.error)
+            }
+        } catch (error) {
+            toast.error('Something went wrong')
+        } finally {
+            setIsPending(false)
+        }
+    }
+
+    return (
+        <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Revoke
+                </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Revoke Invitation?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will permanently delete the invitation. The user will no longer be able to join using this link.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                        onClick={handleRevoke}
+                        className="bg-red-600 hover:bg-red-700"
+                        disabled={isPending}
+                    >
+                        {isPending ? 'Revoking...' : 'Revoke Invitation'}
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    )
+}

@@ -1,7 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
-import { CreateEntitySchema } from './schemas'
+import { CreateEntitySchema, UpdateEntitySchema, CreateInvitationSchema, AcceptInvitationSchema } from './schemas'
 import { auth } from '@/auth'
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
@@ -10,10 +10,15 @@ import {
     isSystemAdminRole,
     canViewSubEntities,
     canManageSubEntities,
+    canEditSubEntity,
+    canManageEntity,
     getPermissionsForRole,
     SUB_ENTITY_MANAGEMENT_ROLES,
+    canManageMembers,
 } from '@/lib/authorization'
 import type { EntityNode } from '@/types/entities'
+import crypto from 'crypto'
+import { sendInvitationEmail } from '@/lib/email/send-email'
 
 export type EntityWithRelations = Entity & {
     parent: Entity | null
@@ -123,7 +128,196 @@ export async function createEntity(data: unknown): Promise<ActionResponse<Entity
         revalidatePath('/')
         return { success: true, data: entity, message: 'Entity created successfully' }
     } catch (error) {
+        console.error('Error creating entity:', error)
+        
+        // Check if it's a foreign key constraint violation
+        if (error && typeof error === 'object' && 'code' in error) {
+            const prismaError = error as { code: string; meta?: { target?: string } }
+            
+            if (prismaError.code === 'P2003') {
+                // Foreign key constraint failed
+                if (prismaError.meta?.target === 'Membership_userId_fkey') {
+                    return { 
+                        success: false, 
+                        error: 'Your session is invalid. Please log out and log in again.' 
+                    }
+                }
+                return { 
+                    success: false, 
+                    error: 'A database constraint was violated. Please try again.' 
+                }
+            }
+        }
+        
         return { success: false, error: 'Failed to create entity' }
+    }
+}
+
+export async function updateEntity(data: unknown): Promise<ActionResponse<Entity>> {
+    const session = await auth()
+    if (!session?.user?.id) {
+        return { success: false, error: 'Unauthorized' }
+    }
+
+    const result = UpdateEntitySchema.safeParse(data)
+    if (!result.success) {
+        return { success: false, error: 'Invalid data' }
+    }
+
+    const { id, name, slug } = result.data
+
+    try {
+        // Get the entity to update
+        const entity = await prisma.entity.findUnique({
+            where: { id },
+            include: { parent: true }
+        })
+
+        if (!entity) {
+            return { success: false, error: 'Entity not found' }
+        }
+
+        // Check permissions
+        let hasAccess = false
+        
+        if (isSystemAdminRole(session.user.role)) {
+            hasAccess = true
+        } else {
+            // Check direct membership on this entity
+            const directMembership = await prisma.membership.findUnique({
+                where: {
+                    userId_entityId: {
+                        userId: session.user.id,
+                        entityId: id,
+                    },
+                },
+            })
+
+            if (directMembership) {
+                hasAccess = canManageEntity(session.user.role, directMembership.role)
+            }
+
+            // If this is a sub-entity, check parent membership for manager access
+            if (!hasAccess && entity.parentId) {
+                const parentMembership = await prisma.membership.findUnique({
+                    where: {
+                        userId_entityId: {
+                            userId: session.user.id,
+                            entityId: entity.parentId,
+                        },
+                    },
+                })
+
+                if (parentMembership && canEditSubEntity(session.user.role, parentMembership.role)) {
+                    hasAccess = true
+                }
+            }
+        }
+
+        if (!hasAccess) {
+            return { success: false, error: 'Insufficient permissions to update this entity' }
+        }
+
+        // Check if slug is already in use by another entity
+        if (slug && slug !== entity.slug) {
+            const existingEntity = await prisma.entity.findUnique({
+                where: { slug },
+            })
+
+            if (existingEntity) {
+                return { success: false, error: 'Slug already in use' }
+            }
+        }
+
+        // Update entity
+        const updatedEntity = await prisma.entity.update({
+            where: { id },
+            data: {
+                ...(name && { name }),
+                ...(slug && { slug }),
+            },
+        })
+
+        revalidatePath('/')
+        revalidatePath(`/entity/${entity.slug}`)
+        if (slug && slug !== entity.slug) {
+            revalidatePath(`/entity/${slug}`)
+        }
+        
+        return { success: true, data: updatedEntity, message: 'Entity updated successfully' }
+    } catch (error) {
+        console.error('Error updating entity:', error)
+        return { success: false, error: 'Failed to update entity' }
+    }
+}
+
+export async function deleteEntity(entityId: string): Promise<ActionResponse<void>> {
+    const session = await auth()
+    if (!session?.user?.id) {
+        return { success: false, error: 'Unauthorized' }
+    }
+
+    try {
+        // Get the entity to delete
+        const entity = await prisma.entity.findUnique({
+            where: { id: entityId },
+            include: {
+                _count: {
+                    select: {
+                        children: true,
+                    },
+                },
+            },
+        })
+
+        if (!entity) {
+            return { success: false, error: 'Entity not found' }
+        }
+
+        // Check if entity has children
+        if (entity._count.children > 0) {
+            return { 
+                success: false, 
+                error: `Cannot delete entity with ${entity._count.children} sub-entities. Delete sub-entities first.` 
+            }
+        }
+
+        // Check permissions - only owner or system admin can delete
+        let canDelete = false
+        
+        if (isSystemAdminRole(session.user.role)) {
+            canDelete = true
+        } else {
+            const membership = await prisma.membership.findUnique({
+                where: {
+                    userId_entityId: {
+                        userId: session.user.id,
+                        entityId,
+                    },
+                },
+            })
+
+            if (membership && membership.role === 'owner') {
+                canDelete = true
+            }
+        }
+
+        if (!canDelete) {
+            return { success: false, error: 'Only entity owners can delete entities' }
+        }
+
+        // Delete the entity (cascade will handle memberships, invites, licenses)
+        await prisma.entity.delete({
+            where: { id: entityId },
+        })
+
+        revalidatePath('/')
+        revalidatePath('/entities')
+        
+        return { success: true, data: undefined, message: 'Entity deleted successfully' }
+    } catch (error) {
+        console.error('Error deleting entity:', error)
+        return { success: false, error: 'Failed to delete entity' }
     }
 }
 
@@ -190,11 +384,13 @@ export async function getCurrentEntityWithChildren(
                     include: {
                         children: {
                             include: {
-                                children: true, // 3 levels deep
+                                children: {
+                                    include: { children: true }, // 3 levels deep
+                                },
                             },
                         },
+                        orderBy: { name: 'asc' },
                     },
-                    orderBy: { name: 'asc' },
                 },
             },
         })
@@ -424,3 +620,243 @@ export async function getSubEntities(
     }
 }
 
+// ============================================================================
+// INVITATION ACTIONS
+// ============================================================================
+
+/**
+ * Create an invitation for a user to join an entity
+ */
+export async function createInvitation(data: unknown): Promise<ActionResponse<void>> {
+    const session = await auth()
+    if (!session?.user?.id) {
+        return { success: false, error: 'Unauthorized' }
+    }
+
+    const result = CreateInvitationSchema.safeParse(data)
+    if (!result.success) {
+        return { success: false, error: 'Invalid data' }
+    }
+
+    const { email, role, entityId } = result.data
+
+    try {
+        // Check permissions
+        if (!isSystemAdminRole(session.user.role)) {
+            const membership = await prisma.membership.findUnique({
+                where: {
+                    userId_entityId: {
+                        userId: session.user.id,
+                        entityId,
+                    },
+                },
+            })
+
+            if (!membership || !canManageMembers(membership.role)) {
+                return { success: false, error: 'Insufficient permissions to invite members' }
+            }
+        }
+
+        // Check if user is already a member
+        const existingUser = await prisma.user.findUnique({
+            where: { email },
+            include: {
+                memberships: {
+                    where: { entityId }
+                }
+            }
+        })
+
+        if (existingUser && existingUser.memberships.length > 0) {
+            return { success: false, error: 'User is already a member of this entity' }
+        }
+
+        // Check for existing pending invite
+        const existingInvite = await prisma.entityInvite.findUnique({
+            where: {
+                email_entityId: {
+                    email,
+                    entityId
+                }
+            }
+        })
+
+        if (existingInvite && !existingInvite.acceptedAt && existingInvite.expiresAt > new Date()) {
+             return { success: false, error: 'A pending invitation already exists for this email' }
+        }
+
+        // Create invitation
+        const token = crypto.randomBytes(32).toString('hex')
+        const expiresAt = new Date()
+        expiresAt.setDate(expiresAt.getDate() + 7) // 7 days expiry
+
+        // Get entity details for the email
+        const entity = await prisma.entity.findUnique({
+            where: { id: entityId },
+            select: { name: true }
+        })
+
+        if (!entity) {
+            return { success: false, error: 'Entity not found' }
+        }
+
+        // Delete existing expired/accepted invite if exists (to allow re-invite)
+        if (existingInvite) {
+            await prisma.entityInvite.delete({
+                where: { id: existingInvite.id }
+            })
+        }
+
+        await prisma.entityInvite.create({
+            data: {
+                email,
+                role,
+                entityId,
+                token,
+                expiresAt,
+            }
+        })
+
+        // Send invitation email
+        const emailResult = await sendInvitationEmail({
+            to: email,
+            entityName: entity.name,
+            inviterName: session.user.name || undefined,
+            inviterEmail: session.user.email || '',
+            role,
+            token,
+            expiresAt,
+        })
+
+        if (!emailResult.success) {
+            console.warn(`Invitation created but email failed to send: ${emailResult.error}`)
+            // Don't fail the invitation creation, just log the warning
+        }
+
+        revalidatePath(`/entity`)
+        return { success: true, data: undefined, message: 'Invitation sent successfully' }
+    } catch (error) {
+        console.error('Error creating invitation:', error)
+        return { success: false, error: 'Failed to create invitation' }
+    }
+}
+
+/**
+ * Revoke an invitation
+ */
+export async function revokeInvitation(invitationId: string): Promise<ActionResponse<void>> {
+    const session = await auth()
+    if (!session?.user?.id) {
+        return { success: false, error: 'Unauthorized' }
+    }
+
+    try {
+         const invitation = await prisma.entityInvite.findUnique({
+            where: { id: invitationId }
+        })
+
+        if (!invitation) {
+            return { success: false, error: 'Invitation not found' }
+        }
+
+        // Check permissions
+        if (!isSystemAdminRole(session.user.role)) {
+            const membership = await prisma.membership.findUnique({
+                where: {
+                    userId_entityId: {
+                        userId: session.user.id,
+                        entityId: invitation.entityId,
+                    },
+                },
+            })
+
+            if (!membership || !canManageMembers(membership.role)) {
+                return { success: false, error: 'Insufficient permissions to revoke invitations' }
+            }
+        }
+
+        await prisma.entityInvite.delete({
+            where: { id: invitationId }
+        })
+
+        revalidatePath(`/entity`)
+        return { success: true, data: undefined, message: 'Invitation revoked' }
+    } catch (error) {
+        return { success: false, error: 'Failed to revoke invitation' }
+    }
+}
+
+/**
+ * Accept an invitation
+ */
+export async function acceptInvitation(token: string): Promise<ActionResponse<void>> {
+     const session = await auth()
+    if (!session?.user?.id) {
+        return { success: false, error: 'Unauthorized: Please log in to accept the invitation' }
+    }
+
+    try {
+        const invite = await prisma.entityInvite.findUnique({
+            where: { token },
+            include: { entity: true }
+        })
+
+        if (!invite) {
+            return { success: false, error: 'Invalid invitation token' }
+        }
+
+        if (invite.acceptedAt) {
+             return { success: false, error: 'Invitation already accepted' }
+        }
+
+        if (invite.expiresAt < new Date()) {
+            return { success: false, error: 'Invitation expired' }
+        }
+
+        // Verify email matches logged in user
+        if (session.user.email !== invite.email) {
+             return { success: false, error: 'This invitation was sent to a different email address' }
+        }
+
+        // Check if already a member
+         const membership = await prisma.membership.findUnique({
+                where: {
+                    userId_entityId: {
+                        userId: session.user.id,
+                        entityId: invite.entityId,
+                    },
+                },
+            })
+
+        if (membership) {
+             // Just mark as accepted if already member
+             await prisma.entityInvite.update({
+                where: { id: invite.id },
+                data: { acceptedAt: new Date() }
+            })
+             return { success: true, data: undefined, message: 'You are already a member of this entity' }
+        }
+
+        // Create membership and update invite in transaction
+        await prisma.$transaction([
+            prisma.membership.create({
+                data: {
+                    userId: session.user.id,
+                    entityId: invite.entityId,
+                    role: invite.role
+                }
+            }),
+            prisma.entityInvite.update({
+                where: { id: invite.id },
+                data: { acceptedAt: new Date() }
+            })
+        ])
+
+        revalidatePath('/')
+        return { success: true, data: undefined, message: `Joined ${invite.entity.name} successfully` }
+
+    } catch (error) {
+        console.error('Error accepting invitation:', error)
+        return { success: false, error: 'Failed to accept invitation' }
+    }
+}

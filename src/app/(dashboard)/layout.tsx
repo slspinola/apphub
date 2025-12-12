@@ -6,6 +6,7 @@ import { getUserEntities, getEntityTreeForNav } from "@/features/entities/action
 import { getSystemSettings } from "@/features/system/actions"
 import { cookies } from "next/headers"
 import { isSystemAdminRole } from "@/lib/authorization"
+import { ImpersonationBanner } from "@/components/users/impersonation-banner"
 
 export default async function DashboardLayout({
     children,
@@ -57,6 +58,7 @@ export default async function DashboardLayout({
                 />
                 <SidebarInset className="flex-1 min-h-[calc(100vh-4rem)] overflow-y-auto">
                     <div className="p-4 md:p-6 w-full">
+                        <ImpersonationBanner />
                         {children}
                     </div>
                 </SidebarInset>

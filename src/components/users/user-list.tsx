@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import {
     Table,
     TableBody,
@@ -9,7 +10,12 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { UserActions } from "./user-actions"
+import { Eye, Users, X } from "lucide-react"
+import Link from "next/link"
+import { useRouter } from 'next/navigation'
 
 interface User {
     id: string
@@ -25,6 +31,37 @@ interface UserListProps {
 }
 
 export function UserList({ users }: UserListProps) {
+    const router = useRouter()
+    const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
+
+    const toggleUser = (userId: string) => {
+        setSelectedUserIds(prev => 
+            prev.includes(userId) 
+                ? prev.filter(id => id !== userId)
+                : [...prev, userId]
+        )
+    }
+
+    const toggleAll = () => {
+        if (selectedUserIds.length === users.length) {
+            setSelectedUserIds([])
+        } else {
+            setSelectedUserIds(users.map(u => u.id))
+        }
+    }
+
+    const clearSelection = () => {
+        setSelectedUserIds([])
+    }
+
+    const handleBulkAction = () => {
+        // Navigate to bulk operations page with selected user IDs
+        const ids = selectedUserIds.join(',')
+        router.push(`/users/bulk?ids=${ids}`)
+    }
+
+    const isAllSelected = selectedUserIds.length === users.length && users.length > 0
+    const isSomeSelected = selectedUserIds.length > 0 && selectedUserIds.length < users.length
     if (users.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -53,41 +90,91 @@ export function UserList({ users }: UserListProps) {
     }
 
     return (
-        <div className="rounded-md border">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Created At</TableHead>
-                        <TableHead className="w-[70px]"></TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {users.map((user) => (
-                        <TableRow key={user.id}>
-                            <TableCell className="font-medium">{user.name || 'N/A'}</TableCell>
-                            <TableCell>{user.email}</TableCell>
-                            <TableCell>
-                                <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                                    {user.role}
-                                </Badge>
-                            </TableCell>
-                            <TableCell>
-                                <Badge variant={user.status === 'active' ? 'outline' : 'destructive'}>
-                                    {user.status}
-                                </Badge>
-                            </TableCell>
-                            <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
-                            <TableCell>
-                                <UserActions user={user} />
-                            </TableCell>
+        <div className="space-y-4">
+            {/* Bulk Action Toolbar */}
+            {selectedUserIds.length > 0 && (
+                <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/50">
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            <Users className="h-5 w-5 text-primary" />
+                            <span className="font-semibold">
+                                {selectedUserIds.length} user{selectedUserIds.length !== 1 ? 's' : ''} selected
+                            </span>
+                        </div>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={clearSelection}
+                        >
+                            <X className="h-4 w-4 mr-2" />
+                            Clear
+                        </Button>
+                    </div>
+                    <Button onClick={handleBulkAction}>
+                        Bulk Actions
+                    </Button>
+                </div>
+            )}
+
+            {/* User Table */}
+            <div className="rounded-md border">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead className="w-[50px]">
+                                <Checkbox
+                                    checked={isAllSelected}
+                                    indeterminate={isSomeSelected}
+                                    onCheckedChange={toggleAll}
+                                    aria-label="Select all users"
+                                />
+                            </TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Role</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Created At</TableHead>
+                            <TableHead className="w-[140px]">Actions</TableHead>
                         </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+                    </TableHeader>
+                    <TableBody>
+                        {users.map((user) => (
+                            <TableRow key={user.id}>
+                                <TableCell>
+                                    <Checkbox
+                                        checked={selectedUserIds.includes(user.id)}
+                                        onCheckedChange={() => toggleUser(user.id)}
+                                        aria-label={`Select ${user.name || user.email}`}
+                                    />
+                                </TableCell>
+                                <TableCell className="font-medium">{user.name || 'N/A'}</TableCell>
+                                <TableCell>{user.email}</TableCell>
+                                <TableCell>
+                                    <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                                        {user.role}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell>
+                                    <Badge variant={user.status === 'active' ? 'outline' : 'destructive'}>
+                                        {user.status}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
+                                <TableCell>
+                                    <div className="flex items-center gap-2">
+                                        <Link href={`/users/${user.id}`}>
+                                            <Button variant="ghost" size="sm">
+                                                <Eye className="h-4 w-4" />
+                                            </Button>
+                                        </Link>
+                                        <UserActions user={user} />
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
         </div>
     )
 }

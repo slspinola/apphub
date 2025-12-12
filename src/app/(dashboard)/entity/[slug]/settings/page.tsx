@@ -4,9 +4,11 @@ import { prisma } from '@/lib/prisma'
 import { isSystemAdminRole, canManageEntity, canEditSubEntity } from '@/lib/authorization'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Building2, ArrowLeft } from 'lucide-react'
+import { Building2, ArrowLeft, Info } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { EntitySettingsForm } from '@/components/entities/entity-settings-form'
+import { DeleteEntityDialog } from '@/components/entities/delete-entity-dialog'
 
 interface EntitySettingsPageProps {
     params: Promise<{ slug: string }>
@@ -92,6 +94,9 @@ export default async function EntitySettingsPage({ params }: EntitySettingsPageP
         )
     }
 
+    const isManager = membershipRole === 'manager'
+    const canDelete = membershipRole === 'owner' || membershipRole === 'system_admin'
+
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-4">
@@ -116,10 +121,10 @@ export default async function EntitySettingsPage({ params }: EntitySettingsPageP
             </div>
 
             {/* Manager notice */}
-            {membershipRole === 'manager' && (
+            {isManager && (
                 <Card className="border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950">
                     <CardContent className="flex items-center gap-3 py-4">
-                        <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                         <div>
                             <p className="font-medium text-blue-900 dark:text-blue-100">
                                 Manager Access
@@ -132,70 +137,7 @@ export default async function EntitySettingsPage({ params }: EntitySettingsPageP
                 </Card>
             )}
 
-            <div className="grid gap-6 md:grid-cols-2">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Building2 className="h-5 w-5" />
-                            General Information
-                        </CardTitle>
-                        <CardDescription>
-                            Basic information about this entity
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div>
-                            <label className="text-sm font-medium text-muted-foreground">
-                                Name
-                            </label>
-                            <p className="text-lg font-medium">{entity.name}</p>
-                        </div>
-                        <div>
-                            <label className="text-sm font-medium text-muted-foreground">
-                                Slug
-                            </label>
-                            <p className="font-mono text-sm">{entity.slug}</p>
-                        </div>
-                        {entity.parent && (
-                            <div>
-                                <label className="text-sm font-medium text-muted-foreground">
-                                    Parent Entity
-                                </label>
-                                <p className="text-sm">{entity.parent.name}</p>
-                            </div>
-                        )}
-                        <div>
-                            <label className="text-sm font-medium text-muted-foreground">
-                                Created
-                            </label>
-                            <p className="text-sm">
-                                {new Date(entity.createdAt).toLocaleDateString()}
-                            </p>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Statistics</CardTitle>
-                        <CardDescription>
-                            Overview of this entity&apos;s structure
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="rounded-lg border p-4 text-center">
-                                <p className="text-3xl font-bold">{entity._count.memberships}</p>
-                                <p className="text-sm text-muted-foreground">Members</p>
-                            </div>
-                            <div className="rounded-lg border p-4 text-center">
-                                <p className="text-3xl font-bold">{entity._count.children}</p>
-                                <p className="text-sm text-muted-foreground">Sub-Entities</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+            <EntitySettingsForm entity={entity} isManagerAccess={isManager} />
 
             <Card>
                 <CardHeader>
@@ -211,6 +153,39 @@ export default async function EntitySettingsPage({ params }: EntitySettingsPageP
                     </p>
                 </CardContent>
             </Card>
+
+            {/* Danger Zone - only for owners */}
+            {canDelete && (
+                <Card className="border-destructive">
+                    <CardHeader>
+                        <CardTitle className="text-destructive">Danger Zone</CardTitle>
+                        <CardDescription>
+                            Irreversible and destructive actions
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="font-medium">Delete this entity</p>
+                                <p className="text-sm text-muted-foreground">
+                                    Once deleted, this entity and all its data will be permanently removed.
+                                    {entity._count.children > 0 && (
+                                        <span className="text-destructive font-medium">
+                                            {' '}This entity has {entity._count.children} sub-entities that must be deleted first.
+                                        </span>
+                                    )}
+                                </p>
+                            </div>
+                            <DeleteEntityDialog
+                                entityId={entity.id}
+                                entityName={entity.name}
+                                childrenCount={entity._count.children}
+                                redirectTo={entity.parent ? `/entity/${entity.parent.slug}` : '/entities'}
+                            />
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
         </div>
     )
 }

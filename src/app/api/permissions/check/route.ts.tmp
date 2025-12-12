@@ -1,0 +1,79 @@
+/**
+ * POST /api/permissions/check
+ * Check if a user has a specific permission in an entity
+ */
+
+import { auth } from '@/auth'
+import { prisma } from '@/lib/prisma'
+import { NextResponse } from 'next/server'
+
+export async function POST(request: Request) {
+  try {
+    const session = await auth()
+
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const body = await request.json()
+    const { userId, entityId, permission } = body
+
+    if (!userId || !entityId || !permission) {
+      return NextResponse.json(
+        { error: 'Missing required fields: userId, entityId, permission' },
+        { status: 400 }
+      )
+    }
+
+    // Get user's role in the entity
+    const membership = await prisma.entityMember.findUnique({
+      where: {
+        entityId_userId: {
+          entityId,
+          userId
+        }
+      }
+    })
+
+    if (!membership) {
+      return NextResponse.json({ hasPermission: false })
+    }
+
+    // For now, implement simple role-based permissions
+    // ADMIN and OWNER have all permissions
+    // MANAGER has most permissions except critical ones
+    // MEMBER has basic permissions
+
+    const rolePermissions: Record<string, string[]> = {
+      OWNER: ['*'], // All permissions
+      ADMIN: ['*'], // All permissions
+      MANAGER: [
+        'create_work_orders',
+        'edit_work_orders',
+        'view_work_orders',
+        'assign_work_orders',
+        'delete_work_orders',
+        'manage_categories'
+      ],
+      MEMBER: ['create_work_orders', 'view_work_orders', 'edit_own_work_orders']
+    }
+
+    const userRole = membership.role as string
+    const allowedPermissions = rolePermissions[userRole] || []
+
+    // Check if user has permission
+    const hasPermission =
+      allowedPermissions.includes('*') || allowedPermissions.includes(permission)
+
+    return NextResponse.json({ hasPermission })
+  } catch (error) {
+    console.error('Error in /api/permissions/check:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}

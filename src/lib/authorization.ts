@@ -121,6 +121,14 @@ export function canEditSubEntity(
     return (SUB_ENTITY_MANAGEMENT_ROLES as readonly string[]).includes(membershipRole)
 }
 
+export function canManageMembers(
+    membershipRole?: string | null
+): boolean {
+    if (!membershipRole) return false
+    // Assuming owners and admins can manage members
+    return (ENTITY_ADMIN_ROLES as readonly string[]).includes(membershipRole)
+}
+
 /**
  * Get permission object for a user's membership role
  */
@@ -172,5 +180,136 @@ export function shouldShowNavItem(
     }
 
     // No restrictions, show to all
+    return true
+}
+
+// ============================================================================
+// USER MANAGEMENT PERMISSIONS
+// ============================================================================
+
+/**
+ * Check if the session user can manage (view/edit/delete) a target user
+ * System Admins can manage all users
+ * Users can manage themselves
+ * Entity admins can manage users in their entities (not implemented yet)
+ */
+export async function canManageUser(targetUserId: string): Promise<boolean> {
+    const session = await auth()
+    if (!session?.user?.id) {
+        return false
+    }
+
+    // System admin can manage all users
+    if (session.user.role === SYSTEM_ADMIN_ROLE) {
+        return true
+    }
+
+    // Users can manage themselves
+    if (session.user.id === targetUserId) {
+        return true
+    }
+
+    // TODO: Check if user is admin in same entity as target user
+    return false
+}
+
+/**
+ * Check if session user can manage a target user (non-async version)
+ */
+export function canManageUserSync(
+    sessionUserId: string,
+    sessionUserRole: string | undefined | null,
+    targetUserId: string
+): boolean {
+    // System admin can manage all users
+    if (isSystemAdminRole(sessionUserRole)) {
+        return true
+    }
+
+    // Users can manage themselves
+    if (sessionUserId === targetUserId) {
+        return true
+    }
+
+    return false
+}
+
+/**
+ * Check if session user can impersonate a target user
+ * Only system admins can impersonate
+ * Cannot impersonate other system admins
+ * Cannot impersonate self
+ */
+export async function canImpersonateUser(targetUserId: string, targetUserRole?: string): Promise<boolean> {
+    const session = await auth()
+    if (!session?.user?.id) {
+        return false
+    }
+
+    // Only system admin can impersonate
+    if (session.user.role !== SYSTEM_ADMIN_ROLE) {
+        return false
+    }
+
+    // Cannot impersonate self
+    if (session.user.id === targetUserId) {
+        return false
+    }
+
+    // Cannot impersonate other system admins
+    if (isSystemAdminRole(targetUserRole)) {
+        return false
+    }
+
+    return true
+}
+
+/**
+ * Check if session user can impersonate (non-async, with explicit parameters)
+ */
+export function canImpersonateUserSync(
+    sessionUserId: string,
+    sessionUserRole: string | undefined | null,
+    targetUserId: string,
+    targetUserRole: string | undefined | null
+): boolean {
+    // Only system admin can impersonate
+    if (!isSystemAdminRole(sessionUserRole)) {
+        return false
+    }
+
+    // Cannot impersonate self
+    if (sessionUserId === targetUserId) {
+        return false
+    }
+
+    // Cannot impersonate other system admins
+    if (isSystemAdminRole(targetUserRole)) {
+        return false
+    }
+
+    return true
+}
+
+/**
+ * Check if session user can reset another user's password
+ * Only system admins can reset passwords (except for their own through normal flow)
+ */
+export async function canResetUserPassword(targetUserId: string, targetUserRole?: string): Promise<boolean> {
+    const session = await auth()
+    if (!session?.user?.id) {
+        return false
+    }
+
+    // Only system admin can reset passwords
+    if (session.user.role !== SYSTEM_ADMIN_ROLE) {
+        return false
+    }
+
+    // Cannot reset system admin passwords
+    if (isSystemAdminRole(targetUserRole)) {
+        return false
+    }
+
     return true
 }
