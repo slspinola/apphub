@@ -46,14 +46,14 @@ export interface IdTokenClaims {
   role?: string
 }
 
-let privateKey: jose.KeyLike | null = null
-let publicKey: jose.KeyLike | null = null
+let privateKey: CryptoKey | null = null
+let publicKey: CryptoKey | null = null
 let jwk: jose.JWK | null = null
 let keyId: string | null = null
 
 async function getKeys(): Promise<{
-  privateKey: jose.KeyLike
-  publicKey: jose.KeyLike
+  privateKey: CryptoKey
+  publicKey: CryptoKey
   jwk: jose.JWK
   keyId: string
 }> {

@@ -381,15 +381,17 @@ export async function getCurrentEntityWithChildren(
             include: {
                 parent: true,
                 children: {
+                    orderBy: { name: 'asc' },
                     include: {
                         children: {
+                            orderBy: { name: 'asc' },
                             include: {
                                 children: {
+                                    orderBy: { name: 'asc' },
                                     include: { children: true }, // 3 levels deep
                                 },
                             },
                         },
-                        orderBy: { name: 'asc' },
                     },
                 },
             },

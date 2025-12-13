@@ -29,7 +29,7 @@ export function WhiteLabelSettingsForm({ initialSettings }: WhiteLabelSettingsFo
     const [isPending, startTransition] = useTransition()
 
     const form = useForm<WhiteLabelSettingsInput>({
-        resolver: zodResolver(WhiteLabelSettingsSchema),
+        resolver: zodResolver(WhiteLabelSettingsSchema) as any,
         defaultValues: {
             companyName: initialSettings.companyName,
             productName: initialSettings.productName,

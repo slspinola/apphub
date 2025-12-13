@@ -38,7 +38,7 @@ export function EntitySettingsForm({ entity, isManagerAccess = false }: EntitySe
         handleSubmit,
         formState: { errors, isDirty },
     } = useForm<FormData>({
-        resolver: zodResolver(UpdateEntitySchema),
+        resolver: zodResolver(UpdateEntitySchema) as any,
         defaultValues: {
             id: entity.id,
             name: entity.name,

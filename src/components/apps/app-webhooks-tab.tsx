@@ -58,7 +58,7 @@ function WebhookDialog({
     setValue,
     formState: { errors, isSubmitting },
   } = useForm<CreateWebhookInput>({
-    resolver: zodResolver(createWebhookSchema),
+    resolver: zodResolver(createWebhookSchema) as any,
     defaultValues: webhook
       ? {
           url: webhook.url,
@@ -273,7 +273,7 @@ export function AppWebhooksTab({ app }: AppWebhooksTabProps) {
           </div>
         </CardHeader>
         <CardContent>
-          {app.webhooks.length === 0 ? (
+          {app.webhooks?.length ?? 0 === 0 ? (
             <div className="text-center py-8">
               <Webhook className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">No webhooks configured</p>
@@ -293,7 +293,7 @@ export function AppWebhooksTab({ app }: AppWebhooksTabProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {app.webhooks.map((webhook) => (
+                {app.webhooks?.map((webhook) => (
                   <TableRow key={webhook.id}>
                     <TableCell className="font-mono text-sm max-w-[200px] truncate">
                       {webhook.url}

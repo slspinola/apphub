@@ -75,7 +75,7 @@ export function CreateEntityDialog({
         watch,
         formState: { errors },
     } = useForm<FormData>({
-        resolver: zodResolver(CreateEntitySchema),
+        resolver: zodResolver(CreateEntitySchema) as any,
         defaultValues: {
             parentId: parentEntityId,
         },

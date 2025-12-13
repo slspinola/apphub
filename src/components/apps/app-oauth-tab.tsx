@@ -32,7 +32,7 @@ export function AppOAuthTab({ app, oauthConfig }: AppOAuthTabProps) {
     watch,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<OAuthConfigInput>({
-    resolver: zodResolver(oauthConfigSchema),
+    resolver: zodResolver(oauthConfigSchema) as any,
     defaultValues: {
       redirectUris: oauthConfig?.redirectUris || [],
       tokenLifetime: oauthConfig?.tokenLifetime || 3600,

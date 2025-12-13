@@ -26,8 +26,8 @@ export async function GET(
           include: {
             _count: {
               select: {
-                members: true,
-                subEntities: true
+                memberships: true,
+                children: true
               }
             }
           }

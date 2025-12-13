@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@prisma/client'
 import { isSystemAdmin, SYSTEM_ADMIN_ROLE, getCurrentUser } from '@/lib/authorization'
 import { auth } from '@/auth'
 import { cookies } from 'next/headers'
@@ -73,7 +74,7 @@ export async function getApps(options?: {
 }) {
   const { status, isPublic, search, page = 1, perPage = 20 } = options || {}
 
-  const where: Parameters<typeof prisma.app.findMany>[0]['where'] = {}
+  const where: Prisma.AppWhereInput = {}
 
   if (status) {
     where.status = status
@@ -211,7 +212,7 @@ export async function createApp(input: CreateAppInput) {
 
   const app = await prisma.app.create({
     data: {
-      ...validated,
+      ...(validated as Prisma.AppCreateInput),
       status: 'DRAFT',
     },
   })
@@ -230,7 +231,7 @@ export async function updateApp(appId: string, input: UpdateAppInput) {
 
   const app = await prisma.app.update({
     where: { id: appId },
-    data: validated,
+    data: validated as Prisma.AppUpdateInput,
   })
 
   revalidatePath('/apps')
@@ -380,7 +381,7 @@ export async function updateOAuthConfig(appId: string, input: OAuthConfigInput) 
 
   const oauthClient = await prisma.oAuthClient.update({
     where: { appId },
-    data: validated,
+    data: validated as any,
   })
 
   revalidatePath(`/apps/${appId}`)
@@ -398,7 +399,7 @@ export async function getAppPermissions(appId: string, options?: {
   resource?: string
   groupName?: string
 }) {
-  const where: Parameters<typeof prisma.permission.findMany>[0]['where'] = {
+  const where: Prisma.PermissionWhereInput = {
     appId,
   }
 
@@ -440,11 +441,10 @@ export async function createPermission(appId: string, input: CreatePermissionInp
     throw new Error('A permission with this slug already exists for this app')
   }
 
-  const permission = await prisma.permission.create({
-    data: {
+  const permission = await prisma.permission.create({ data: {
       appId,
       ...validated,
-    },
+    } as Prisma.PermissionUncheckedCreateInput,
   })
 
   revalidatePath(`/apps/${appId}`)
@@ -478,7 +478,7 @@ export async function updatePermission(
 
   const updated = await prisma.permission.update({
     where: { id: permissionId },
-    data: validated,
+    data: validated as any,
   })
 
   revalidatePath(`/apps/${appId}`)
@@ -607,11 +607,10 @@ export async function createScopeType(appId: string, input: CreateScopeTypeInput
     throw new Error('A scope type with this slug already exists for this app')
   }
 
-  const scopeType = await prisma.appScopeType.create({
-    data: {
+  const scopeType = await prisma.appScopeType.create({ data: {
       appId,
       ...validated,
-    },
+    } as Prisma.AppScopeTypeUncheckedCreateInput,
   })
 
   revalidatePath(`/apps/${appId}`)
@@ -640,7 +639,7 @@ export async function updateScopeType(
 
   const updated = await prisma.appScopeType.update({
     where: { id: scopeTypeId },
-    data: validated,
+    data: validated as any,
   })
 
   revalidatePath(`/apps/${appId}`)
@@ -701,7 +700,7 @@ export async function syncScopeTypes(appId: string, input: SyncScopeTypesInput) 
         data: toCreate.map((s) => ({
           appId,
           ...s,
-        })),
+        })) as any,
       })
     }
 
@@ -710,7 +709,7 @@ export async function syncScopeTypes(appId: string, input: SyncScopeTypesInput) 
         where: {
           appId_slug: { appId, slug: s.slug },
         },
-        data: s,
+        data: s as any,
       })
     }
   })
@@ -736,7 +735,7 @@ export async function getAppPlans(appId: string, options?: {
   isActive?: boolean
   isPublic?: boolean
 }) {
-  const where: Parameters<typeof prisma.plan.findMany>[0]['where'] = {
+  const where: Prisma.PlanWhereInput = {
     appId,
   }
 
@@ -783,11 +782,10 @@ export async function createPlan(appId: string, input: CreatePlanInput) {
     throw new Error('A plan with this slug already exists for this app')
   }
 
-  const plan = await prisma.plan.create({
-    data: {
+  const plan = await prisma.plan.create({ data: {
       appId,
       ...validated,
-    },
+    } as Prisma.PlanUncheckedCreateInput,
   })
 
   revalidatePath(`/apps/${appId}`)
@@ -815,7 +813,7 @@ export async function updatePlan(appId: string, planId: string, input: UpdatePla
 
   const updated = await prisma.plan.update({
     where: { id: planId },
-    data: validated,
+    data: validated as any,
   })
 
   revalidatePath(`/apps/${appId}`)
@@ -922,7 +920,7 @@ export async function updateWebhook(
 
   const updated = await prisma.appWebhook.update({
     where: { id: webhookId },
-    data: validated,
+    data: validated as any,
   })
 
   revalidatePath(`/apps/${appId}`)
@@ -1250,7 +1248,7 @@ export async function getAppBySlugForUser(slug: string) {
   // Serialize for client
   return {
     ...app,
-    licenses: app.licenses?.map(license => ({
+    licenses: (app.licenses as any[])?.map(license => ({
       ...license,
       validFrom: license.validFrom.toISOString(),
       validUntil: license.validUntil?.toISOString() ?? null,
@@ -1260,7 +1258,7 @@ export async function getAppBySlugForUser(slug: string) {
       updatedAt: license.updatedAt.toISOString(),
       plan: {
         ...license.plan,
-        price: license.plan.price ? license.plan.price.toNumber() : null,
+        price: license.plan?.price ? license.plan.price.toNumber() : null,
       },
     })) ?? [],
     plans: app.plans.map(plan => ({
@@ -1277,8 +1275,8 @@ export async function getAppBySlugForUser(slug: string) {
       createdAt: activeLicense.createdAt.toISOString(),
       updatedAt: activeLicense.updatedAt.toISOString(),
       plan: {
-        ...activeLicense.plan,
-        price: activeLicense.plan.price ? activeLicense.plan.price.toNumber() : null,
+        ...(activeLicense as any).plan,
+        price: (activeLicense as any).plan?.price ? (activeLicense as any).plan.price.toNumber() : null,
       },
     } : null,
     isPublicApp,

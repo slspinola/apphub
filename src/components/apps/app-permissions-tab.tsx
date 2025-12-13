@@ -55,7 +55,7 @@ function PermissionDialog({
     reset,
     formState: { errors, isSubmitting },
   } = useForm<CreatePermissionInput>({
-    resolver: zodResolver(createPermissionSchema),
+    resolver: zodResolver(createPermissionSchema) as any,
     defaultValues: permission
       ? {
           slug: permission.slug,

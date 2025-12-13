@@ -48,7 +48,7 @@ export function AppGeneralTab({ app }: AppGeneralTabProps) {
     control,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<UpdateAppInput>({
-    resolver: zodResolver(updateAppSchema),
+    resolver: zodResolver(updateAppSchema) as any,
     defaultValues: {
       name: app.name,
       description: app.description || '',

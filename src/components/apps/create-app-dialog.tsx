@@ -39,7 +39,7 @@ export function CreateAppDialog({ children }: CreateAppDialogProps) {
     control,
     formState: { errors, isSubmitting },
   } = useForm<CreateAppInput>({
-    resolver: zodResolver(createAppSchema),
+    resolver: zodResolver(createAppSchema) as any,
     defaultValues: {
       slug: '',
       name: '',

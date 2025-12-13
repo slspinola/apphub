@@ -33,7 +33,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
                     </div>
                     <CardTitle>{result.success ? 'Invitation Accepted' : 'Invitation Failed'}</CardTitle>
                     <CardDescription>
-                        {result.message || result.error}
+                        {result.success ? 'You have been added to the organization.' : result.error}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>

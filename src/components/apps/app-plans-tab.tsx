@@ -56,7 +56,7 @@ function PlanDialog({
     watch,
     formState: { errors, isSubmitting },
   } = useForm<CreatePlanInput>({
-    resolver: zodResolver(createPlanSchema),
+    resolver: zodResolver(createPlanSchema) as any,
     defaultValues: plan
       ? {
           slug: plan.slug,

@@ -20,7 +20,8 @@ export interface AppWithDetails extends App {
   oauthClient: OAuthClient | null
   permissions: Permission[]
   scopeTypes: AppScopeType[]
-  plans: Plan[]
+  plans: (Plan & { _count: { licenses: number } })[]
+  webhooks?: AppWebhook[]
   _count?: {
     permissions: number
     scopeTypes: number

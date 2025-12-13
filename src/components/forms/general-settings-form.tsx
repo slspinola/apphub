@@ -28,7 +28,7 @@ export function GeneralSettingsForm({ initialSettings }: GeneralSettingsFormProp
     const [isPending, startTransition] = useTransition()
 
     const form = useForm<GeneralSettingsInput>({
-        resolver: zodResolver(GeneralSettingsSchema),
+        resolver: zodResolver(GeneralSettingsSchema) as any,
         defaultValues: {
             defaultLanguage: initialSettings.defaultLanguage || 'en',
             defaultTimezone: initialSettings.defaultTimezone || 'UTC',

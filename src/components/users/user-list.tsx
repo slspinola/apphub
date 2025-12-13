@@ -124,7 +124,6 @@ export function UserList({ users }: UserListProps) {
                             <TableHead className="w-[50px]">
                                 <Checkbox
                                     checked={isAllSelected}
-                                    indeterminate={isSomeSelected}
                                     onCheckedChange={toggleAll}
                                     aria-label="Select all users"
                                 />

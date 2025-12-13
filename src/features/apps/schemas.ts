@@ -30,8 +30,7 @@ export const createAppSchema = z.object({
     .string()
     .min(2, 'Name must be at least 2 characters')
     .max(100, 'Name must be at most 100 characters'),
-  description: z
-    .preprocess((val) => (val === '' ? null : val), z.string().max(500, 'Description must be at most 500 characters').nullable().optional()),
+  description: z.string().max(500, 'Description must be at most 500 characters').optional(),
   icon: optionalUrl('Icon must be a valid URL'),
   color: z
     .preprocess(
@@ -43,8 +42,8 @@ export const createAppSchema = z.object({
   docsUrl: optionalUrl('Documentation URL must be a valid URL'),
   supportUrl: optionalUrl('Support URL must be a valid URL'),
   isPublic: z.boolean().optional().default(true),
-  settings: z.record(z.unknown()).optional().default({}),
-  metadata: z.record(z.unknown()).optional().default({}),
+  settings: z.record(z.string(), z.unknown()).optional().default({}),
+  metadata: z.record(z.string(), z.unknown()).optional().default({}),
 })
 
 export const updateAppSchema = createAppSchema.partial().omit({ slug: true })
@@ -124,7 +123,7 @@ export const createScopeTypeSchema = z.object({
   requiresSelection: z.boolean().optional().default(true),
   multiSelect: z.boolean().optional().default(false),
   optionsEndpoint: z.string().max(500).optional().nullable(),
-  valueSchema: z.record(z.unknown()).optional().nullable(),
+  valueSchema: z.record(z.string(), z.unknown()).optional().nullable(),
   sortOrder: z.number().int().min(0).optional().default(0),
 })
 
@@ -152,8 +151,8 @@ export const createPlanSchema = z.object({
   price: z.number().min(0).optional().nullable(),
   currency: z.string().length(3, 'Currency must be a 3-letter code').optional().nullable(),
   billingCycle: z.enum(['monthly', 'yearly', 'one-time']).optional().nullable(),
-  limits: z.record(z.number()).optional().default({}),
-  features: z.record(z.boolean()).optional().default({}),
+  limits: z.record(z.string(), z.number()).optional().default({}),
+  features: z.record(z.string(), z.boolean()).optional().default({}),
   isPublic: z.boolean().optional().default(true),
   isTrial: z.boolean().optional().default(false),
   trialDays: z.number().int().min(1).max(365).optional().nullable(),
@@ -182,14 +181,14 @@ export const createLicenseSchema = z.object({
   validFrom: z.coerce.date().optional(),
   validUntil: z.coerce.date().optional().nullable(),
   trialEndsAt: z.coerce.date().optional().nullable(),
-  metadata: z.record(z.unknown()).optional().default({}),
+  metadata: z.record(z.string(), z.unknown()).optional().default({}),
 })
 
 export const updateLicenseSchema = z.object({
   planId: z.string().cuid('Invalid plan ID').optional(),
   status: licenseStatusSchema.optional(),
   validUntil: z.coerce.date().optional().nullable(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 })
 
 // ============================================================================
@@ -230,12 +229,12 @@ export const createMembershipScopeSchema = z.object({
   membershipId: z.string().cuid('Invalid membership ID'),
   appId: z.string().cuid('Invalid app ID'),
   scopeType: z.string().min(2).max(50),
-  scopeValue: z.record(z.unknown()).optional().nullable(),
+  scopeValue: z.record(z.string(), z.unknown()).optional().nullable(),
 })
 
 export const updateMembershipScopeSchema = z.object({
   scopeType: z.string().min(2).max(50),
-  scopeValue: z.record(z.unknown()).optional().nullable(),
+  scopeValue: z.record(z.string(), z.unknown()).optional().nullable(),
 })
 
 // ============================================================================

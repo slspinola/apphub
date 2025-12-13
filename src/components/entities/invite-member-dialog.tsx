@@ -50,7 +50,7 @@ export function InviteMemberDialog({
         watch,
         formState: { errors },
     } = useForm<FormData>({
-        resolver: zodResolver(CreateInvitationSchema),
+        resolver: zodResolver(CreateInvitationSchema) as any,
         defaultValues: {
             entityId,
             role: 'member',

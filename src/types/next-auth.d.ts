@@ -5,12 +5,20 @@ declare module "next-auth" {
         user: {
             id: string
             role: string
+            impersonatedBy?: {
+                id: string
+                role: string
+            }
         } & DefaultSession["user"]
     }
 
     interface User {
         id: string
         role: string
+        impersonatedBy?: {
+            id: string
+            role: string
+        }
     }
 }
 

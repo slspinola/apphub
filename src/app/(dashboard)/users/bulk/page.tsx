@@ -43,7 +43,7 @@ async function getSelectedUsers(ids: string[]) {
 export default async function BulkOperationsPage({
     searchParams,
 }: {
-    searchParams: { ids?: string }
+    searchParams: Promise<{ ids?: string }>
 }) {
     const session = await auth()
 
@@ -56,7 +56,8 @@ export default async function BulkOperationsPage({
         redirect('/users')
     }
 
-    const idsParam = searchParams.ids || ''
+    const params = await searchParams
+    const idsParam = params.ids || ''
     const userIds = idsParam.split(',').filter(Boolean)
 
     if (userIds.length === 0) {

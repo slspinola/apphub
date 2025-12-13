@@ -3,6 +3,7 @@ import { authConfig } from './auth.config'
 import { validateSessionUser } from './lib/auth-utils'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import type { Session } from 'next-auth'
 
 // Debug logging to check environment in Vercel logs
 // NextAuth v5 uses AUTH_SECRET, not NEXTAUTH_SECRET
@@ -14,7 +15,7 @@ if (!process.env.AUTH_SECRET) {
 
 const { auth } = NextAuth(authConfig)
 
-export default auth(async function middleware(req: NextRequest) {
+export default auth(async function middleware(req: NextRequest & { auth: Session | null }) {
     const session = req.auth
 
     // Public paths that don't require authentication or validation
